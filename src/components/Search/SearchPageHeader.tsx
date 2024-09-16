@@ -323,6 +323,7 @@ function SearchPageHeader({queryJSON, hash, onSelectDeleteOption, setOfflineModa
                     text={translate('search.filtersHeader')}
                     icon={Expensicons.Filters}
                     onPress={onPress}
+                    medium
                 />
             )}
         </HeaderWrapper>

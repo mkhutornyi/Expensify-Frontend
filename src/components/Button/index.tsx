@@ -193,7 +193,7 @@ function Button(
 
         small = false,
         large = false,
-        medium = !small && !large,
+        medium = false,
 
         isLoading = false,
         isDisabled = false,

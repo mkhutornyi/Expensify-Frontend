@@ -128,6 +128,7 @@ function PromotedActionsBar({promotedActions, containerStyle}: PromotedActionsBa
                     <Button
                         onPress={onSelected}
                         iconFill={theme.icon}
+                        medium
                         // eslint-disable-next-line react/jsx-props-no-spreading
                         {...props}
                     />

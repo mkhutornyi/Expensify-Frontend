@@ -73,6 +73,7 @@ function IssueCardMessage({action, policyID}: IssueCardMessageProps) {
                         Navigation.navigate(ROUTES.MISSING_PERSONAL_DETAILS.getRoute(policyID));
                     }}
                     success
+                    medium
                     style={[styles.alignSelfStart, styles.mt3]}
                     text={translate('workspace.expensifyCard.addShippingDetails')}
                 />

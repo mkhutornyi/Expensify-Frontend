@@ -105,6 +105,7 @@ function ReportParticipantDetails({personalDetails, report, route}: ReportPartic
                             <Button
                                 text={translate('workspace.people.removeGroupMemberButtonTitle')}
                                 onPress={() => setIsRemoveMemberConfirmModalVisible(true)}
+                                medium
                                 isDisabled={isSelectedMemberCurrentUser}
                                 icon={Expensicons.RemoveMembers}
                                 iconStyles={StyleUtils.getTransformScaleStyle(0.8)}

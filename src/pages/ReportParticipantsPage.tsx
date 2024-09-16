@@ -314,6 +314,7 @@ function ReportParticipantsPage({report}: WithReportOrNotFoundProps) {
                     />
                 ) : (
                     <Button
+                        medium
                         success
                         onPress={inviteUser}
                         text={translate('workspace.invite.member')}

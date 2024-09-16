@@ -78,6 +78,7 @@ function UnlinkLoginForm({account, credentials}: UnlinkLoginFormProps) {
                     <Text style={[styles.link]}>{translate('common.back')}</Text>
                 </PressableWithFeedback>
                 <Button
+                    medium
                     success
                     text={translate('unlinkLoginForm.unlink')}
                     isLoading={account?.isLoading && account.loadingForm === CONST.FORMS.UNLINK_LOGIN_FORM}

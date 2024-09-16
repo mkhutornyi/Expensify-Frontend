@@ -132,6 +132,7 @@ function ImportSpreedsheet({backTo, goTo}: ImportSpreedsheetProps) {
             <FilePicker acceptableFileTypes={CONST.ALLOWED_SPREADSHEET_EXTENSIONS.map((extension) => `.${extension}`).join(',')}>
                 {({openPicker}) => (
                     <Button
+                        medium
                         success
                         text={translate('common.chooseFile')}
                         accessibilityLabel={translate('common.chooseFile')}
