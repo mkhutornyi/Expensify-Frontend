@@ -23,6 +23,7 @@ import NAVIGATORS from '@src/NAVIGATORS';
 import ONYXKEYS from '@src/ONYXKEYS';
 import ROUTES from '@src/ROUTES';
 import SCREENS from '@src/SCREENS';
+import isLoadingOnyxValue from '@src/types/utils/isLoadingOnyxValue';
 
 import {useRoute} from '@react-navigation/native';
 import React, {useContext, useEffect, useRef} from 'react';
@@ -34,6 +35,7 @@ import ManualBankAccountDetails from './substeps/ManualBankAccountDetailsStep';
 import PhoneNumber from './substeps/PhoneNumberStep';
 import PlaidBankAccount from './substeps/PlaidBankAccountStep';
 import Success from './substeps/SuccessStep';
+import getInitialSubPagePersonalBankAccount from './utils/getInitialSubPagePersonalBankAccount';
 import getSkippedStepsPersonalInfo from './utils/getSkippedStepsPersonalInfo';
 
 const SUB_PAGE_NAMES = CONST.ADD_PERSONAL_BANK_ACCOUNT.SUB_PAGE_NAMES;
@@ -57,7 +59,7 @@ function AddPersonalBankAccountPage() {
     const urlSubPage = (route.params as {subPage?: string} | undefined)?.subPage;
 
     const [privatePersonalDetails] = useOnyx(ONYXKEYS.PRIVATE_PERSONAL_DETAILS);
-    const [personalBankAccount] = useOnyx(ONYXKEYS.FORMS.PERSONAL_BANK_ACCOUNT_FORM_DRAFT);
+    const [personalBankAccount, personalBankAccountMetadata] = useOnyx(ONYXKEYS.FORMS.PERSONAL_BANK_ACCOUNT_FORM_DRAFT);
     const [fullPersonalBankAccount] = useOnyx(ONYXKEYS.PERSONAL_BANK_ACCOUNT);
     const isManual = personalBankAccount?.setupType === CONST.BANK_ACCOUNT.SETUP_TYPE.MANUAL || urlSubPage === SUB_PAGE_NAMES.MANUAL_BANK_ACCOUNT_DETAILS;
     const error = getLatestErrorMessage(fullPersonalBankAccount ?? DEFAULT_OBJECT);
@@ -150,9 +152,17 @@ function AddPersonalBankAccountPage() {
         route.name === SCREENS.SETTINGS.ADD_US_BANK_ACCOUNT ? ROUTES.SETTINGS_ADD_US_BANK_ACCOUNT.getRoute(pageName, action) : ROUTES.BANK_ACCOUNT_PERSONAL.getRoute(pageName, action);
     const onFinished = (data?: unknown) => exitFlow(!!data);
 
+    // Resume on the first sub-page the saved draft has not answered yet, so dismissing the RHP mid-flow and coming
+    // back does not restart the setup. startFrom is only read while the URL has no sub-page, and it is read on the
+    // first render, so hold the redirect with -1 until the draft has hydrated - otherwise an empty draft would pin
+    // the flow to sub-page 0 before the real values land.
+    const isLoadingPersonalBankAccount = isLoadingOnyxValue(personalBankAccountMetadata);
+    const startFrom = isLoadingPersonalBankAccount ? -1 : getInitialSubPagePersonalBankAccount(pages, personalBankAccount, skipPages);
+
     const {CurrentPage, isEditing, nextPage, prevPage, moveTo, pageIndex, currentPageName, isRedirecting} = useSubPage<SubPageProps>({
         pages,
         skipPages,
+        startFrom,
         onFinished,
         buildRoute,
     });

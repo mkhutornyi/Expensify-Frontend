@@ -73,6 +73,40 @@ Onyx.connectWithoutView({
     callback: (value) => (bankAccountList = value),
 });
 
+// These drafts hold the user's progress through the add-bank-account flows. They are read here (rather than passed in)
+// because openPersonalBankAccountSetupView is an action called from several entry points that have no reason to know
+// about them, and it has to decide whether the flow is a fresh setup or a resume before it navigates.
+let personalBankAccountFormDraft: OnyxEntry<PersonalBankAccountForm>;
+
+Onyx.connectWithoutView({
+    key: ONYXKEYS.FORMS.PERSONAL_BANK_ACCOUNT_FORM_DRAFT,
+    callback: (value) => (personalBankAccountFormDraft = value),
+});
+
+let internationalBankAccountFormDraft: OnyxEntry<InternationalBankAccountForm>;
+
+Onyx.connectWithoutView({
+    key: ONYXKEYS.FORMS.INTERNATIONAL_BANK_ACCOUNT_FORM_DRAFT,
+    callback: (value) => (internationalBankAccountFormDraft = value),
+});
+
+/** Keys every form draft carries that say nothing about how far the user got. */
+const FORM_METADATA_KEYS = new Set<string>(['isLoading', 'errors', 'errorFields']);
+
+function hasDraftProgress(draft: OnyxEntry<PersonalBankAccountForm> | OnyxEntry<InternationalBankAccountForm>): boolean {
+    return Object.entries(draft ?? {}).some(([key, value]) => !FORM_METADATA_KEYS.has(key) && value !== '' && value !== null && value !== undefined);
+}
+
+/**
+ * Whether there is an unfinished bank account setup that should be resumed rather than wiped.
+ * Every deliberate way out of these flows already clears the drafts - finishing them, exitFlow, and the
+ * international flow's back-out from country selection - so anything left in them means the user dismissed the
+ * RHP mid-way and expects to pick up where they left off.
+ */
+function hasInProgressPersonalBankAccountSetup(): boolean {
+    return hasDraftProgress(personalBankAccountFormDraft) || hasDraftProgress(internationalBankAccountFormDraft);
+}
+
 type AccountFormValues = typeof ONYXKEYS.FORMS.PERSONAL_BANK_ACCOUNT_FORM | typeof ONYXKEYS.FORMS.REIMBURSEMENT_ACCOUNT_FORM;
 
 type OpenPersonalBankAccountSetupViewProps = {
@@ -127,6 +161,9 @@ function setPlaidEvent(eventName: string | null) {
  * Any existing PERSONAL_BANK_ACCOUNT data is fully replaced with only the fields passed to this function,
  * so callers that pass no parameters (e.g. Wallet > Add bank account) clear all existing data including
  * a leftover onSuccessFallbackRoute from a previous flow.
+ *
+ * The form drafts are treated differently: if the user has an unfinished setup they are kept, and the flow
+ * navigates straight back to the sub-page they left off on instead of restarting from the beginning.
  */
 function openPersonalBankAccountSetupView({
     exitReportID,
@@ -136,7 +173,12 @@ function openPersonalBankAccountSetupView({
     isUserValidated = true,
     onSuccessFallbackRoute,
 }: OpenPersonalBankAccountSetupViewProps) {
-    clearInternationalBankAccount().then(() => {
+    // Re-entering the Wallet after dismissing the flow mid-way is a resume, not a new setup, so the drafts holding the
+    // user's progress (and the Plaid/Corpay data they depend on) have to survive. Only a genuinely fresh setup wipes them.
+    const shouldResumeSetup = hasInProgressPersonalBankAccountSetup();
+    const resumedSetupType = shouldResumeSetup ? personalBankAccountFormDraft?.setupType : undefined;
+
+    (shouldResumeSetup ? Promise.resolve() : clearInternationalBankAccount()).then(() => {
         const personalBankAccountState: Partial<PersonalBankAccount> = {};
 
         if (exitReportID) {
@@ -153,15 +195,20 @@ function openPersonalBankAccountSetupView({
         }
 
         // Use set instead of merge so each new flow starts with only the fields we explicitly pass, not leftover fields from a previous flow.
+        // This key only holds routing context and request status, never the user's answers, so it is safe to reset on a resume too.
         Onyx.set(ONYXKEYS.PERSONAL_BANK_ACCOUNT, Object.keys(personalBankAccountState).length > 0 ? personalBankAccountState : null);
-        Onyx.set(ONYXKEYS.FORMS.PERSONAL_BANK_ACCOUNT_FORM_DRAFT, null);
+        if (!shouldResumeSetup) {
+            Onyx.set(ONYXKEYS.FORMS.PERSONAL_BANK_ACCOUNT_FORM_DRAFT, null);
+        }
 
         if (!isUserValidated) {
             // This flow always adds a personal deposit account, so the purpose screen is skipped once the account is validated.
             Navigation.navigate(createDynamicRoute(DYNAMIC_ROUTES.ADD_BANK_ACCOUNT_VERIFY_ACCOUNT.getRoute(true)));
             return;
         }
-        if (shouldSetUpUSBankAccount) {
+        // Once a setup type has been picked the user is already past country selection and the entry point, so go straight
+        // back into the US flow and let it resume at the sub-page they left off on.
+        if (shouldSetUpUSBankAccount || resumedSetupType) {
             Navigation.navigate(ROUTES.SETTINGS_ADD_US_BANK_ACCOUNT.getRoute());
             return;
         }

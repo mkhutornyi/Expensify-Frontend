@@ -46,13 +46,7 @@ import {
 import {setDraftValues} from '@userActions/FormActions';
 import {getPaymentMethods} from '@userActions/PaymentMethods';
 import {isCurrencySupportedForGlobalReimbursement} from '@userActions/Policy/Policy';
-import {
-    cancelChangingToNewBankAccount,
-    clearReimbursementAccount,
-    clearReimbursementAccountBackup,
-    clearReimbursementAccountDraft,
-    restoreReimbursementAccountBackup,
-} from '@userActions/ReimbursementAccount';
+import {cancelChangingToNewBankAccount, clearReimbursementAccountBackup, clearReimbursementAccountDraft, restoreReimbursementAccountBackup} from '@userActions/ReimbursementAccount';
 
 import CONST from '@src/CONST';
 import NAVIGATORS from '@src/NAVIGATORS';
@@ -119,7 +113,6 @@ function ReimbursementAccountPage({route, policy, isLoadingPolicy}: Reimbursemen
     const requestorStepRef = useRef<View>(null);
     const hasRequestedNewBankAccountRef = useRef(false);
     const hasClearedStalePlaidErrorsRef = useRef(false);
-    const isChangingBankAccountRef = useRef(isChangingBankAccount);
     const hasShownConnectedBankAccountRef = useRef(false);
     const prevReimbursementAccount = usePrevious(reimbursementAccount);
     const prevIsOffline = usePrevious(isOffline);
@@ -182,12 +175,11 @@ function ReimbursementAccountPage({route, policy, isLoadingPolicy}: Reimbursemen
     const isConnectedVerifiedBankAccountData = isNonUSDSetup ? achData?.state === CONST.BANK_ACCOUNT.STATE.OPEN : achData?.currentStep === CONST.BANK_ACCOUNT.STEP.ENABLE;
 
     useEffect(() => {
-        const isChangingBankAccountInstance = isChangingBankAccountRef.current;
         return () => {
-            if (!isChangingBankAccountInstance) {
-                clearReimbursementAccountDraft();
-                clearReimbursementAccount();
-            }
+            // Dismissing the RHP is not the same as abandoning the setup, so the draft and achData are kept here and
+            // the flow resumes from them on re-entry. The resets that genuinely mean "start over" still run elsewhere:
+            // the mount-time clear below when a workspace flow opens, the country step when the country changes, and
+            // the explicit requestResetBankAccount / resetUSDBankAccount / resetNonUSDBankAccount actions.
             cancelChangingToNewBankAccount();
             getPaymentMethods();
         };

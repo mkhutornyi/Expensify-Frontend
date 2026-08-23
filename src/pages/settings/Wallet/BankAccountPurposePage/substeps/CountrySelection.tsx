@@ -19,6 +19,7 @@ import React, {useMemo, useState} from 'react';
 
 function CountrySelection() {
     const [country] = useOnyx(ONYXKEYS.COUNTRY);
+    const [reimbursementAccountDraft] = useOnyx(ONYXKEYS.FORMS.REIMBURSEMENT_ACCOUNT_FORM_DRAFT);
     const personalPolicy = usePersonalPolicy();
     const {translate} = useLocalize();
     const styles = useThemeStyles();
@@ -69,8 +70,13 @@ function CountrySelection() {
             return;
         }
         startWithLoading(() => {
-            clearReimbursementAccount();
-            clearReimbursementAccountDraft();
+            // Passing back through this screen for the country that is already being set up is a re-entry into an
+            // unfinished flow, so keep the draft and achData - ReimbursementAccountPage resumes from them. Picking a
+            // different country is a genuinely new setup and still resets everything.
+            if (reimbursementAccountDraft?.country !== selectedCountry) {
+                clearReimbursementAccount();
+                clearReimbursementAccountDraft();
+            }
             updateReimbursementAccountDraft({country: selectedCountry as Country, currency: CONST.BBA_COUNTRY_CURRENCY_MAP[selectedCountry]});
             navigateToBankAccountRoute({backTo: ROUTES.SETTINGS_BANK_ACCOUNT_PURPOSE});
         });

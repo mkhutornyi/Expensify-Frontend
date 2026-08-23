@@ -46,11 +46,20 @@ function AccountFlowEntryPoint({policyName = '', onBackButtonPress}: AccountFlow
 
     const [isPlaidDisabled] = useOnyx(ONYXKEYS.IS_PLAID_DISABLED);
     const [personalBankAccount, personalBankAccountResult] = useOnyx(ONYXKEYS.PERSONAL_BANK_ACCOUNT);
-    const isLoadingPersonalBankAccount = isLoadingOnyxValue(personalBankAccountResult);
+    const [personalBankAccountDraft, personalBankAccountDraftResult] = useOnyx(ONYXKEYS.FORMS.PERSONAL_BANK_ACCOUNT_FORM_DRAFT);
+    const isLoadingPersonalBankAccount = isLoadingOnyxValue(personalBankAccountResult, personalBankAccountDraftResult);
     const onSuccessFallbackRoute = personalBankAccount?.onSuccessFallbackRoute;
+    const setupTypeInProgress = personalBankAccountDraft?.setupType;
 
     useEffect(() => {
         if (isLoadingPersonalBankAccount) {
+            return;
+        }
+
+        // An unfinished setup is resumed, not restarted, so leave its draft alone. Reaching this screen with a setup
+        // type already saved means the user dismissed the RHP mid-flow - every deliberate way out of the flow clears
+        // the draft through exitFlow first.
+        if (setupTypeInProgress) {
             return;
         }
 
@@ -60,18 +69,21 @@ function AccountFlowEntryPoint({policyName = '', onBackButtonPress}: AccountFlow
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [isLoadingPersonalBankAccount]);
 
+    const navigateToSetup = (setupType: string, firstSubPage: string) => {
+        updateAddPersonalBankAccountDraft({setupType});
+        // Picking the same setup type the unfinished draft already uses is a resume, so navigate without a sub-page and
+        // let the flow pick up where the user left off. A new setup still opens on its first sub-page, which also avoids
+        // racing the setupType merge above (the flow reads it to decide which sub-pages to show).
+        const isResumingSetupType = setupTypeInProgress === setupType;
+        Navigation.navigate(ROUTES.SETTINGS_ADD_US_BANK_ACCOUNT.getRoute(isResumingSetupType ? undefined : firstSubPage));
+    };
+
     const handleConnectManually = () => {
-        updateAddPersonalBankAccountDraft({
-            setupType: CONST.BANK_ACCOUNT.SETUP_TYPE.MANUAL,
-        });
-        Navigation.navigate(ROUTES.SETTINGS_ADD_US_BANK_ACCOUNT.getRoute(CONST.ADD_PERSONAL_BANK_ACCOUNT.SUB_PAGE_NAMES.MANUAL_BANK_ACCOUNT_DETAILS));
+        navigateToSetup(CONST.BANK_ACCOUNT.SETUP_TYPE.MANUAL, CONST.ADD_PERSONAL_BANK_ACCOUNT.SUB_PAGE_NAMES.MANUAL_BANK_ACCOUNT_DETAILS);
     };
 
     const handleConnectPlaid = () => {
-        updateAddPersonalBankAccountDraft({
-            setupType: CONST.BANK_ACCOUNT.SETUP_TYPE.PLAID,
-        });
-        Navigation.navigate(ROUTES.SETTINGS_ADD_US_BANK_ACCOUNT.getRoute(CONST.ADD_PERSONAL_BANK_ACCOUNT.SUB_PAGE_NAMES.PLAID_BANK_ACCOUNT));
+        navigateToSetup(CONST.BANK_ACCOUNT.SETUP_TYPE.PLAID, CONST.ADD_PERSONAL_BANK_ACCOUNT.SUB_PAGE_NAMES.PLAID_BANK_ACCOUNT);
     };
 
     return (
